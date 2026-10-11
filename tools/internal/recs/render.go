@@ -32,8 +32,8 @@ func Run(stdin []byte, name string, args ...string) (string, error) {
 	return stdout.String(), nil
 }
 
-// Pull fetches a chart into the cache once and returns the .tgz path.
-func Pull(rel Release) (string, error) {
+// pull fetches a chart into the cache once and returns the .tgz path.
+func pull(rel Release) (string, error) {
 	dir := filepath.Join(CacheDir, "charts", safe(rel.Repo+rel.Chart), rel.Version)
 	if m, _ := filepath.Glob(filepath.Join(dir, "*.tgz")); len(m) == 1 {
 		return m[0], nil
@@ -55,9 +55,9 @@ func Pull(rel Release) (string, error) {
 	return m[0], nil
 }
 
-// ValuesFiles writes values documents to temporary files and returns -f
+// valuesFiles writes values documents to temporary files and returns -f
 // arguments for helm, plus a cleanup function.
-func ValuesFiles(docs ...map[string]any) ([]string, func(), error) {
+func valuesFiles(docs ...map[string]any) ([]string, func(), error) {
 	dir, err := os.MkdirTemp("", "recs-values-")
 	if err != nil {
 		return nil, nil, err
@@ -80,9 +80,9 @@ func ValuesFiles(docs ...map[string]any) ([]string, func(), error) {
 	return args, cleanup, nil
 }
 
-// Manifest returns a release's objects: downloaded for URLs, as written for
+// releaseManifest returns a release's objects: downloaded for URLs, as written for
 // inline manifests.
-func Manifest(rel Release) ([]byte, error) {
+func releaseManifest(rel Release) ([]byte, error) {
 	if rel.Kind() == "inline" {
 		return []byte(rel.Manifests), nil
 	}
@@ -102,17 +102,17 @@ func Manifest(rel Release) ([]byte, error) {
 // values documents layered on top.
 func Template(c *Component, rel Release, profile, kubeVersion string, extra ...map[string]any) ([]byte, error) {
 	if rel.Kind() != "helm" {
-		return Manifest(rel)
+		return releaseManifest(rel)
 	}
-	chart, err := Pull(rel)
+	chart, err := pull(rel)
 	if err != nil {
 		return nil, err
 	}
-	vals, err := c.Values(rel, profile, c.TestInputs())
+	vals, err := c.values(rel, profile, c.testInputs())
 	if err != nil {
 		return nil, err
 	}
-	files, cleanup, err := ValuesFiles(append([]map[string]any{vals}, extra...)...)
+	files, cleanup, err := valuesFiles(append([]map[string]any{vals}, extra...)...)
 	if err != nil {
 		return nil, err
 	}

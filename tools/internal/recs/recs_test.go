@@ -18,7 +18,7 @@ list: [{name: first}]`,
 		}},
 		Inputs: []Input{{Name: "bucket", Path: "list.0.bucket"}},
 	}
-	got, err := c.Values(c.Releases[0], "single-node", map[string]any{"bucket": "b1"})
+	got, err := c.values(c.Releases[0], "single-node", map[string]any{"bucket": "b1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestInstallOrder(t *testing.T) {
 }
 
 func TestUnexplained(t *testing.T) {
-	got := Unexplained(`
+	got := unexplained(`
 # why a
 a: 1
 b: 2

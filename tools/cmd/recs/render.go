@@ -14,11 +14,10 @@ import (
 )
 
 // render runs helm template for every component, release, profile and
-// Kubernetes version, with every contribution applied, and optionally checks
-// the output with kubeconform.
+// Kubernetes version, with every contribution applied, and checks the output
+// with kubeconform.
 func render(fs *flag.FlagSet, cat *recs.Catalog) error {
 	out := fs.String("out", "out/render", "output directory")
-	conform := fs.Bool("kubeconform", false, "validate the output with kubeconform")
 	fs.Parse(os.Args[2:])
 	cfg, err := loadConfig()
 	if err != nil {
@@ -71,21 +70,19 @@ func render(fs *flag.FlagSet, cat *recs.Catalog) error {
 		}
 		slog.Info("rendered", "component", c.ID)
 	}
-	if *conform {
-		// Custom resources are checked against the CRDs rendered with them.
-		schemas := *out + "-schemas"
-		if err := recs.CRDSchemas(*out, schemas); err != nil {
-			return err
-		}
-		for _, kv := range cfg.Versions {
-			cmd := exec.Command("kubeconform", "-kubernetes-version", kv, "-strict", "-summary", "-skip", "CustomResourceDefinition",
-				"-schema-location", "default",
-				"-schema-location", schemas+"/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json",
-				filepath.Join(*out, kv))
-			cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-			if err := cmd.Run(); err != nil {
-				errs = append(errs, fmt.Errorf("kubeconform %s: %w", kv, err))
-			}
+	// Custom resources are checked against the CRDs rendered with them.
+	schemas := *out + "-schemas"
+	if err := recs.CRDSchemas(*out, schemas); err != nil {
+		return err
+	}
+	for _, kv := range cfg.Versions {
+		cmd := exec.Command("kubeconform", "-kubernetes-version", kv, "-strict", "-summary", "-skip", "CustomResourceDefinition",
+			"-schema-location", "default",
+			"-schema-location", schemas+"/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json",
+			filepath.Join(*out, kv))
+		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+		if err := cmd.Run(); err != nil {
+			errs = append(errs, fmt.Errorf("kubeconform %s: %w", kv, err))
 		}
 	}
 	return errors.Join(errs...)

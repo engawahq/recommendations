@@ -2,4 +2,4 @@
 # component recommended on single-node, as measured on single-node kind.
 # The cluster itself is not included. Over budget fails CI.
 singleNode:
-  budgetMiB: 1024
+  budgetMiB: 512

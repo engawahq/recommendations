@@ -119,7 +119,7 @@ cert-manager, and `recs render` fails if two renders differ.
 
    ```sh
    go run ./tools/cmd/recs validate               # schema, license, references, comments
-   go run ./tools/cmd/recs render -kubeconform    # helm template + kubeconform
+   go run ./tools/cmd/recs render                 # helm template + kubeconform
    kind create cluster                            # --config .github/kind.yaml for multi-node
    go run ./tools/cmd/recs e2e -profile single-node <id>
    ```

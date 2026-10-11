@@ -16,7 +16,10 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-const smokeNamespace = "recs-smoke"
+const (
+	smokeNamespace = "recs-smoke"
+	settle         = time.Minute // after install, before measuring
+)
 
 // Tester installs components on the current kubectl context one at a time.
 type Tester struct {
@@ -24,7 +27,6 @@ type Tester struct {
 	Profile   string
 	Overrides map[string]map[string]string // test-only values per component and release
 	Previous  map[string]*Component        // last release's components, for upgrade tests
-	Settle    time.Duration
 }
 
 // Result is the outcome for one component.
@@ -69,7 +71,7 @@ func (t *Tester) Test(id string) (res Result) {
 		after, err := inventory()
 		errs = append(errs, err)
 		added := addedSince(before, after)
-		if left := slices.DeleteFunc(residue(order, added), retained); len(left) > 0 {
+		if left := residue(order, added); len(left) > 0 {
 			errs = append(errs, fmt.Errorf("left behind: %s", strings.Join(left, ", ")))
 		}
 		for _, e := range added { // clean up accepted leftovers for the next test
@@ -104,14 +106,14 @@ func (t *Tester) Test(id string) (res Result) {
 		if !target {
 			continue
 		}
-		slog.Info("installed; settling", "component", id, "for", t.Settle)
-		time.Sleep(t.Settle)
+		slog.Info("installed; settling", "component", id, "for", settle)
+		time.Sleep(settle)
 		// Only new pods in the component's own namespaces are its cost.
 		namespaces := map[string]bool{}
 		for _, rel := range c.Releases {
 			namespaces[rel.Namespace] = true
 		}
-		res.IdleMemoryMiB, res.IdleCPUm, err = SampleUsage(func(ns, name string) bool {
+		res.IdleMemoryMiB, res.IdleCPUm, err = sampleUsage(func(ns, name string) bool {
 			return namespaces[ns] && !existing[ns+"/"+name]
 		})
 		if err != nil {
@@ -175,7 +177,7 @@ func (t *Tester) installRelease(r *run, c *Component, rel Release) error {
 	}
 	key := c.ID + "/" + rel.Name
 	if rel.Kind() != "helm" {
-		manifest, err := Manifest(rel)
+		manifest, err := releaseManifest(rel)
 		if err != nil {
 			return err
 		}
@@ -196,11 +198,11 @@ func (t *Tester) installRelease(r *run, c *Component, rel Release) error {
 		return waitReady(manifest, rel.Namespace)
 	}
 
-	chart, err := Pull(rel)
+	chart, err := pull(rel)
 	if err != nil {
 		return err
 	}
-	vals, err := c.Values(rel, t.Profile, c.TestInputs())
+	vals, err := c.values(rel, t.Profile, c.testInputs())
 	if err != nil {
 		return err
 	}
@@ -212,7 +214,7 @@ func (t *Tester) installRelease(r *run, c *Component, rel Release) error {
 		}
 		docs = append(docs, m)
 	}
-	files, cleanup, err := ValuesFiles(docs...)
+	files, cleanup, err := valuesFiles(docs...)
 	if err != nil {
 		return err
 	}
@@ -236,7 +238,7 @@ func (t *Tester) installRelease(r *run, c *Component, rel Release) error {
 // createSecrets creates the Secrets that inputs live in, one per name, with
 // every key. Existing Secrets are kept, so an upgrade test reuses them.
 func createSecrets(r *run, c *Component) error {
-	inputs := c.TestInputs()
+	inputs := c.testInputs()
 	keys := map[SecretRef][]string{} // Key unset: one entry per Secret
 	for _, in := range c.Inputs {
 		if in.Secret == nil {
@@ -356,9 +358,9 @@ func retry(timeout time.Duration, f func() error) error {
 	}
 }
 
-// SampleUsage returns the median working set (MiB) and CPU (millicores) of
+// sampleUsage returns the median working set (MiB) and CPU (millicores) of
 // matching pods over five samples, from the kubelet summary API.
-func SampleUsage(match func(ns, name string) bool) (mem, cpu float64, err error) {
+func sampleUsage(match func(ns, name string) bool) (mem, cpu float64, err error) {
 	var mems, cpus []float64
 	for i := range 5 {
 		if i > 0 {
@@ -396,7 +398,7 @@ func podUsage(match func(ns, name string) bool) (mem, cpu float64, err error) {
 			return 0, 0, err
 		}
 		for _, p := range s.Pods {
-			if match == nil || match(p.PodRef.Namespace, p.PodRef.Name) {
+			if match(p.PodRef.Namespace, p.PodRef.Name) {
 				mem += p.Memory.WorkingSetBytes / (1 << 20)
 				cpu += p.CPU.UsageNanoCores / 1e6
 			}
@@ -466,18 +468,6 @@ func addedSince(before, after map[string]bool) []string {
 	}
 	slices.Sort(out)
 	return out
-}
-
-// retained reports a released volume kept by its Retain reclaim policy: the
-// cluster's storage class chose to keep it, not the component.
-func retained(e string) bool {
-	name, ok := strings.CutPrefix(e, "persistentvolumes /")
-	if !ok {
-		return false
-	}
-	out, _ := kubectl("get", "persistentvolume", name, "--ignore-not-found",
-		"-o", "jsonpath={.spec.persistentVolumeReclaimPolicy}/{.status.phase}")
-	return out == "Retain/Released"
 }
 
 // residue drops declared leftovers from what an uninstall left behind. Kept

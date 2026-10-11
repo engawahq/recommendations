@@ -54,7 +54,7 @@ func Check(root string, cat *Catalog) error {
 		}
 		for _, r := range c.Releases {
 			check := func(where, values string) {
-				for _, p := range Unexplained(values) {
+				for _, p := range unexplained(values) {
 					fail(c.Path, "%s: %s has no comment saying why", where, p)
 				}
 			}
@@ -78,7 +78,7 @@ func Check(root string, cat *Catalog) error {
 			} else if _, ok := t.Release(ct.Release); !ok {
 				fail(c.Path, "contributes: %s has no release %s", ct.Target, ct.Release)
 			}
-			for _, p := range Unexplained(ct.Values) {
+			for _, p := range unexplained(ct.Values) {
 				fail(c.Path, "contributes to %s: %s has no comment saying why", ct.Target, p)
 			}
 		}
@@ -109,10 +109,10 @@ func licenseIDs(expr string) []string {
 	return out
 }
 
-// Unexplained returns the paths of values without a comment on themselves or
+// unexplained returns the paths of values without a comment on themselves or
 // an ancestor. Inside a nested block, a comment on the first entry covers the
 // block; at the document root each key needs its own.
-func Unexplained(values string) []string {
+func unexplained(values string) []string {
 	var doc yaml.Node
 	if err := yaml.Unmarshal([]byte(values), &doc); err != nil {
 		return []string{"(invalid YAML: " + err.Error() + ")"}

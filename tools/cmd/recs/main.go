@@ -1,8 +1,7 @@
 // Command recs checks, renders, tests and packages the catalog.
 //
 //	recs validate                    schema, licenses, references, value comments
-//	recs render [-kubeconform] [ids] helm template every profile and Kubernetes version
-//	recs plan [-profile p] [ids]     install order
+//	recs render [ids]                helm template every profile and Kubernetes version, then kubeconform
 //	recs list                        e2e CI matrix (profile × component) as JSON
 //	recs e2e -profile <p> [ids]      install, measure, smoke test, uninstall
 //	recs budget                      single-node memory budget
@@ -23,7 +22,6 @@ import (
 var commands = map[string]func(*flag.FlagSet, *recs.Catalog) error{
 	"validate": validate,
 	"render":   render,
-	"plan":     plan,
 	"list":     list,
 	"e2e":      e2e,
 	"budget":   budget,
@@ -32,7 +30,7 @@ var commands = map[string]func(*flag.FlagSet, *recs.Catalog) error{
 
 func main() {
 	if len(os.Args) < 2 || commands[os.Args[1]] == nil {
-		fmt.Fprintln(os.Stderr, "usage: recs validate|render|plan|list|e2e|budget|index [flags] [ids]")
+		fmt.Fprintln(os.Stderr, "usage: recs validate|render|list|e2e|budget|index [flags] [ids]")
 		os.Exit(2)
 	}
 	if dir, err := os.UserCacheDir(); err == nil {
@@ -63,20 +61,6 @@ func validate(fs *flag.FlagSet, cat *recs.Catalog) error {
 	}
 	fmt.Println("ok")
 	return nil
-}
-
-func plan(fs *flag.FlagSet, cat *recs.Catalog) error {
-	profile := fs.String("profile", "single-node", "profile")
-	fs.Parse(os.Args[2:])
-	ids := fs.Args()
-	if len(ids) == 0 {
-		ids = recommended(cat, *profile)
-	}
-	order, err := cat.InstallOrder(ids, *profile)
-	for _, c := range order {
-		fmt.Println(c.ID)
-	}
-	return err
 }
 
 // list prints the e2e CI matrix: every profile × component it supports, and

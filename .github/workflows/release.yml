@@ -23,7 +23,7 @@ jobs:
             go test ./... &&
             go run ./tools/cmd/recs validate &&
             go run ./tools/cmd/recs index &&
-            go run ./tools/cmd/recs render -kubeconform
+            go run ./tools/cmd/recs render
           '
           mkdir dist
           cp index.json dist/

@@ -158,9 +158,9 @@ func (cat *Catalog) Get(id string) (*Component, bool) {
 	return cat.Components[i], true
 }
 
-// Provider resolves a reference for a profile: <capability>/<upstream> as is,
+// provider resolves a reference for a profile: <capability>/<upstream> as is,
 // <capability> to its recommended upstream, else an optional one.
-func (cat *Catalog) Provider(ref, profile string) (*Component, error) {
+func (cat *Catalog) provider(ref, profile string) (*Component, error) {
 	if strings.Contains(ref, "/") {
 		if c, ok := cat.Get(ref); ok {
 			return c, nil
@@ -199,7 +199,7 @@ func (cat *Catalog) InstallOrder(ids []string, profile string) ([]*Component, er
 		}
 		state[c] = 1
 		for _, ref := range c.DependsOn {
-			dep, err := cat.Provider(ref, profile)
+			dep, err := cat.provider(ref, profile)
 			if err != nil {
 				return fmt.Errorf("%s: %w", c.ID, err)
 			}
@@ -212,7 +212,7 @@ func (cat *Catalog) InstallOrder(ids []string, profile string) ([]*Component, er
 		return nil
 	}
 	for _, id := range ids {
-		c, err := cat.Provider(id, profile)
+		c, err := cat.provider(id, profile)
 		if err != nil {
 			return nil, err
 		}
@@ -223,16 +223,16 @@ func (cat *Catalog) InstallOrder(ids []string, profile string) ([]*Component, er
 	return order, nil
 }
 
-// Values returns a chart release's values for a profile: shared values, the
+// values returns a chart release's values for a profile: shared values, the
 // profile's overrides, then inputs set at their paths. Comments are dropped.
-func (c *Component) Values(rel Release, profile string, inputs map[string]any) (map[string]any, error) {
+func (c *Component) values(rel Release, profile string, inputs map[string]any) (map[string]any, error) {
 	vals := map[string]any{}
 	for _, doc := range []string{rel.Values, rel.Profiles[profile]} {
 		var m map[string]any
 		if err := yaml.Unmarshal([]byte(doc), &m); err != nil {
 			return nil, fmt.Errorf("%s/%s: %w", c.ID, rel.Name, err)
 		}
-		Merge(vals, m)
+		merge(vals, m)
 	}
 	for _, in := range c.Inputs {
 		v, ok := inputs[in.Name]
@@ -258,8 +258,8 @@ func (c *Component) inputRelease(in Input) string {
 	return ""
 }
 
-// TestInputs returns the values CI installs with: testValue, else default.
-func (c *Component) TestInputs() map[string]any {
+// testInputs returns the values CI installs with: testValue, else default.
+func (c *Component) testInputs() map[string]any {
 	out := map[string]any{}
 	for _, in := range c.Inputs {
 		switch {
@@ -272,13 +272,13 @@ func (c *Component) TestInputs() map[string]any {
 	return out
 }
 
-// Merge merges src into dst like Helm layers values files: maps merge,
+// merge merges src into dst like Helm layers values files: maps merge,
 // everything else replaces.
-func Merge(dst, src map[string]any) {
+func merge(dst, src map[string]any) {
 	for k, v := range src {
 		if sm, ok := v.(map[string]any); ok {
 			if dm, ok := dst[k].(map[string]any); ok {
-				Merge(dm, sm)
+				merge(dm, sm)
 				continue
 			}
 			v = maps.Clone(sm)

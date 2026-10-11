@@ -33,7 +33,6 @@ func e2e(fs *flag.FlagSet, cat *recs.Catalog) error {
 	profile := fs.String("profile", "", "single-node or multi-node; the current cluster must match it")
 	write := fs.Bool("write", false, "update measurements/ for passing components")
 	previous := fs.String("previous", "", "previous release's index.json, for upgrade tests")
-	settle := fs.Duration("settle", time.Minute, "wait after install before measuring")
 	fs.Parse(os.Args[2:])
 
 	if !slices.Contains(recs.Profiles, *profile) {
@@ -55,7 +54,7 @@ func e2e(fs *flag.FlagSet, cat *recs.Catalog) error {
 	if err := recs.ReadYAML("config/e2e.yaml", &e2eCfg); err != nil {
 		return err
 	}
-	t := &recs.Tester{Catalog: cat, Profile: *profile, Overrides: e2eCfg.Overrides, Settle: *settle}
+	t := &recs.Tester{Catalog: cat, Profile: *profile, Overrides: e2eCfg.Overrides}
 	if *previous != "" {
 		if t.Previous, err = readPrevious(*previous); err != nil {
 			return err
