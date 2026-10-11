@@ -11,7 +11,25 @@
       "measuredAt": "2026-10-11"
     },
     "single-node-arm64-v1.36.4": {
-      "idleMemoryMiB": 43,
+      "idleMemoryMiB": 23,
+      "idleCPUm": 0,
+      "versions": {
+        "gateway-api-crds": "v1.6.2",
+        "traefik": "41.7.1"
+      },
+      "measuredAt": "2026-10-11"
+    },
+    "multi-node-amd64-v1.36.4": {
+      "idleMemoryMiB": 45,
+      "idleCPUm": 0,
+      "versions": {
+        "gateway-api-crds": "v1.6.2",
+        "traefik": "41.7.1"
+      },
+      "measuredAt": "2026-10-11"
+    },
+    "single-node-amd64-v1.36.4": {
+      "idleMemoryMiB": 23,
       "idleCPUm": 0,
       "versions": {
         "gateway-api-crds": "v1.6.2",
