@@ -78,7 +78,7 @@ func index(fs *flag.FlagSet, cat *recs.Catalog) error {
 }
 
 // budget sums the idle memory of every component recommended on single-node,
-// measured on single-node kind, and fails above the budget.
+// measured on single-node kind on amd64, and fails above the budget.
 func budget(fs *flag.FlagSet, cat *recs.Catalog) error {
 	fs.Parse(os.Args[2:])
 	var cfg budgetConfig
@@ -88,9 +88,9 @@ func budget(fs *flag.FlagSet, cat *recs.Catalog) error {
 	var total float64
 	var errs []error
 	for _, id := range recommended(cat, "single-node") {
-		mib, ok := latest(readMeasurement(measurementPath(id)), "single-node")
+		mib, ok := latest(readMeasurement(measurementPath(id)), "single-node-amd64")
 		if !ok {
-			errs = append(errs, fmt.Errorf("%s: not measured on single-node", id))
+			errs = append(errs, fmt.Errorf("%s: not measured on single-node amd64", id))
 			continue
 		}
 		total += mib
@@ -104,11 +104,11 @@ func budget(fs *flag.FlagSet, cat *recs.Catalog) error {
 }
 
 // latest returns the idle memory of the newest cluster version measured for
-// a profile ("single-node" matches "single-node-v1.36.4").
-func latest(m measurement, profile string) (float64, bool) {
+// a prefix ("single-node-amd64" matches "single-node-amd64-v1.36.4").
+func latest(m measurement, prefix string) (float64, bool) {
 	keys := slices.Sorted(maps.Keys(m.Environments))
 	for _, k := range slices.Backward(keys) {
-		if strings.HasPrefix(k, profile+"-") {
+		if strings.HasPrefix(k, prefix+"-") {
 			return m.Environments[k].IdleMemoryMiB, true
 		}
 	}

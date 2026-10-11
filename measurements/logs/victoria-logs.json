@@ -1,12 +1,12 @@
 {
   "component": "logs/victoria-logs",
   "environments": {
-    "multi-node-v1.36.4": {
+    "multi-node-arm64-v1.36.4": {
       "idleMemoryMiB": 38,
       "idleCPUm": 3,
       "measuredAt": "2026-10-11"
     },
-    "single-node-v1.36.4": {
+    "single-node-arm64-v1.36.4": {
       "idleMemoryMiB": 44,
       "idleCPUm": 2,
       "measuredAt": "2026-10-11"

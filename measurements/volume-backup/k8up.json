@@ -1,7 +1,7 @@
 {
   "component": "volume-backup/k8up",
   "environments": {
-    "multi-node-v1.36.4": {
+    "multi-node-arm64-v1.36.4": {
       "idleMemoryMiB": 21,
       "idleCPUm": 1,
       "versions": {
@@ -9,7 +9,7 @@
       },
       "measuredAt": "2026-10-11"
     },
-    "single-node-v1.36.4": {
+    "single-node-arm64-v1.36.4": {
       "idleMemoryMiB": 10,
       "idleCPUm": 1,
       "versions": {

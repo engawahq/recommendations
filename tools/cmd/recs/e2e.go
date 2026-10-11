@@ -10,13 +10,14 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/engawa/recommendations/tools/internal/recs"
 )
 
 // measurement is measurements/<capability>/<upstream>.json. Environments are
-// keyed "<profile>-<server version>".
+// keyed "<profile>-<architecture>-<server version>".
 type measurement struct {
 	Component    string                 `json:"component,omitempty"`
 	Environments map[string]environment `json:"environments"`
@@ -42,11 +43,14 @@ func e2e(fs *flag.FlagSet, cat *recs.Catalog) error {
 	if err != nil {
 		return err
 	}
-	var version struct{ ServerVersion struct{ GitVersion string } }
+	var version struct {
+		ServerVersion struct{ GitVersion, Platform string }
+	}
 	if err := json.Unmarshal([]byte(out), &version); err != nil {
 		return err
 	}
-	key := *profile + "-" + version.ServerVersion.GitVersion
+	_, arch, _ := strings.Cut(version.ServerVersion.Platform, "/") // linux/amd64
+	key := *profile + "-" + arch + "-" + version.ServerVersion.GitVersion
 
 	var e2eCfg struct {
 		Overrides map[string]map[string]string `yaml:"overrides"`
