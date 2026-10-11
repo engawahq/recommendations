@@ -1,17 +1,7 @@
 {
   "component": "intrusion-prevention/crowdsec",
   "environments": {
-    "k3s-v1.37.1+k3s1": {
-      "profile": "single-node",
-      "idleMemoryMiB": 76,
-      "idleCPUm": 1,
-      "versions": {
-        "crowdsec": "0.24.2"
-      },
-      "measuredAt": "2026-10-11"
-    },
-    "kind-v1.36.4": {
-      "profile": "multi-node",
+    "multi-node-v1.36.4": {
       "idleMemoryMiB": 119,
       "idleCPUm": 1,
       "versions": {
@@ -19,9 +9,8 @@
       },
       "measuredAt": "2026-10-11"
     },
-    "kubesolo-v1.35.7+kubesolo-v1.2.1": {
-      "profile": "single-node",
-      "idleMemoryMiB": 135,
+    "single-node-v1.36.4": {
+      "idleMemoryMiB": 84,
       "idleCPUm": 1,
       "versions": {
         "crowdsec": "0.24.2"

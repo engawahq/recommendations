@@ -18,7 +18,6 @@
             kubectl
             kubeconform
             kind
-            k3d
             cosign
             jq
             yq-go

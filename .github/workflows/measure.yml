@@ -49,5 +49,5 @@ jobs:
             Update measured resource usage
 
             Signed-off-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
-          body: Idle memory and CPU measured by the e2e workflow on k3s and kind.
+          body: Idle memory and CPU measured by the e2e workflow on single-node and multi-node kind.
           add-paths: measurements/

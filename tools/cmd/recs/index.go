@@ -17,9 +17,8 @@ const indexVersion = 1
 
 type budgetConfig struct {
 	SingleNode struct {
-		BudgetMiB    float64  `yaml:"budgetMiB"`
-		Environments []string `yaml:"environments"`
-	} `yaml:"singleNode"`
+		BudgetMiB float64 `yaml:"budgetMiB" json:"budgetMiB"`
+	} `yaml:"singleNode" json:"singleNode"`
 }
 
 // index writes index.json: every component with its install order and
@@ -40,10 +39,6 @@ func index(fs *flag.FlagSet, cat *recs.Catalog) error {
 		*recs.Component
 		InstallOrder map[string][]string    `json:"installOrder"`
 		Measured     map[string]environment `json:"measured,omitempty"`
-	}
-	baselines := map[string]environment{}
-	for _, env := range budget.SingleNode.Environments {
-		maps.Copy(baselines, readMeasurement(measurementPath(env)).Environments)
 	}
 	capabilities := map[string]map[string][]string{}
 	var comps []component
@@ -77,56 +72,43 @@ func index(fs *flag.FlagSet, cat *recs.Catalog) error {
 		"profiles":     recs.Profiles,
 		"kubernetes":   cfg.Versions,
 		"budget":       budget,
-		"baselines":    baselines,
 		"capabilities": capabilities, // capability -> profile -> recommended IDs
 		"components":   comps,
 	})
 }
 
-// budget sums, for each environment, the measured idle memory of the empty
-// cluster and every component recommended on single-node that runs on it, and
-// fails above the budget.
+// budget sums the idle memory of every component recommended on single-node,
+// measured on single-node kind, and fails above the budget.
 func budget(fs *flag.FlagSet, cat *recs.Catalog) error {
 	fs.Parse(os.Args[2:])
 	var cfg budgetConfig
 	if err := recs.ReadYAML("config/budget.yaml", &cfg); err != nil {
 		return err
 	}
+	var total float64
 	var errs []error
-	for _, env := range cfg.SingleNode.Environments {
-		base, ok := latest(readMeasurement(measurementPath(env)), env)
+	for _, id := range recommended(cat, "single-node") {
+		mib, ok := latest(readMeasurement(measurementPath(id)), "single-node")
 		if !ok {
-			errs = append(errs, fmt.Errorf("no %s baseline in %s", env, measurementPath(env)))
+			errs = append(errs, fmt.Errorf("%s: not measured on single-node", id))
 			continue
 		}
-		total := base
-		fmt.Printf("%-48s %5.0f MiB\n", env+" baseline", base)
-		for _, id := range recommended(cat, "single-node") {
-			if c, _ := cat.Get(id); !c.RunsOn(env) {
-				continue
-			}
-			mib, ok := latest(readMeasurement(measurementPath(id)), env)
-			if !ok {
-				errs = append(errs, fmt.Errorf("%s: not measured on %s", id, env))
-				continue
-			}
-			total += mib
-			fmt.Printf("%-48s %5.0f MiB\n", id, mib)
-		}
-		fmt.Printf("%-48s %5.0f MiB of %.0f\n\n", env+" total", total, cfg.SingleNode.BudgetMiB)
-		if total > cfg.SingleNode.BudgetMiB {
-			errs = append(errs, fmt.Errorf("%s: %.0f MiB exceeds the %.0f MiB budget", env, total, cfg.SingleNode.BudgetMiB))
-		}
+		total += mib
+		fmt.Printf("%-48s %5.0f MiB\n", id, mib)
+	}
+	fmt.Printf("%-48s %5.0f MiB of %.0f\n", "total", total, cfg.SingleNode.BudgetMiB)
+	if total > cfg.SingleNode.BudgetMiB {
+		errs = append(errs, fmt.Errorf("%.0f MiB exceeds the %.0f MiB budget", total, cfg.SingleNode.BudgetMiB))
 	}
 	return errors.Join(errs...)
 }
 
-// latest returns the idle memory of the newest version of env ("k3s" matches
-// "k3s-v1.37.1+k3s1").
-func latest(m measurement, env string) (float64, bool) {
+// latest returns the idle memory of the newest cluster version measured for
+// a profile ("single-node" matches "single-node-v1.36.4").
+func latest(m measurement, profile string) (float64, bool) {
 	keys := slices.Sorted(maps.Keys(m.Environments))
 	for _, k := range slices.Backward(keys) {
-		if strings.HasPrefix(k, env+"-") {
+		if strings.HasPrefix(k, profile+"-") {
 			return m.Environments[k].IdleMemoryMiB, true
 		}
 	}

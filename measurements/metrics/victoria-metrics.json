@@ -1,17 +1,7 @@
 {
   "component": "metrics/victoria-metrics",
   "environments": {
-    "k3s-v1.37.1+k3s1": {
-      "profile": "single-node",
-      "idleMemoryMiB": 256,
-      "idleCPUm": 21,
-      "versions": {
-        "k8s-stack": "0.95.2"
-      },
-      "measuredAt": "2026-10-11"
-    },
-    "kind-v1.36.4": {
-      "profile": "multi-node",
+    "multi-node-v1.36.4": {
       "idleMemoryMiB": 448,
       "idleCPUm": 33,
       "versions": {
@@ -19,10 +9,9 @@
       },
       "measuredAt": "2026-10-11"
     },
-    "kubesolo-v1.35.7+kubesolo-v1.2.1": {
-      "profile": "single-node",
-      "idleMemoryMiB": 204,
-      "idleCPUm": 40,
+    "single-node-v1.36.4": {
+      "idleMemoryMiB": 215,
+      "idleCPUm": 16,
       "versions": {
         "k8s-stack": "0.95.2"
       },

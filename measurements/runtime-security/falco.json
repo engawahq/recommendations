@@ -1,17 +1,7 @@
 {
   "component": "runtime-security/falco",
   "environments": {
-    "k3s-v1.37.1+k3s1": {
-      "profile": "single-node",
-      "idleMemoryMiB": 46,
-      "idleCPUm": 3,
-      "versions": {
-        "falco": "9.2.0"
-      },
-      "measuredAt": "2026-10-11"
-    },
-    "kind-v1.36.4": {
-      "profile": "multi-node",
+    "multi-node-v1.36.4": {
       "idleMemoryMiB": 169,
       "idleCPUm": 17,
       "versions": {
@@ -19,10 +9,9 @@
       },
       "measuredAt": "2026-10-11"
     },
-    "kubesolo-v1.35.7+kubesolo-v1.2.1": {
-      "profile": "single-node",
-      "idleMemoryMiB": 42,
-      "idleCPUm": 3,
+    "single-node-v1.36.4": {
+      "idleMemoryMiB": 46,
+      "idleCPUm": 4,
       "versions": {
         "falco": "9.2.0"
       },

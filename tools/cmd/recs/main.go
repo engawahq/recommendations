@@ -3,8 +3,8 @@
 //	recs validate                    schema, licenses, references, value comments
 //	recs render [-kubeconform] [ids] helm template every profile and Kubernetes version
 //	recs plan [-profile p] [ids]     install order
-//	recs list -env <env>             components and cluster version as JSON (CI matrix)
-//	recs e2e -env <env> [ids]        install, measure, smoke test, uninstall
+//	recs list                        e2e CI matrix (profile × component) as JSON
+//	recs e2e -profile <p> [ids]      install, measure, smoke test, uninstall
 //	recs budget                      single-node memory budget
 //	recs index                       write index.json
 package main
@@ -79,24 +79,28 @@ func plan(fs *flag.FlagSet, cat *recs.Catalog) error {
 	return err
 }
 
-// list prints, for a CI matrix, the components an e2e environment tests and
-// the cluster version to test them on.
+// list prints the e2e CI matrix: every profile × component it supports, and
+// the kind node version.
 func list(fs *flag.FlagSet, cat *recs.Catalog) error {
-	env := fs.String("env", "k3s", "e2e environment")
 	fs.Parse(os.Args[2:])
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
 	}
-	e := cfg.E2E[*env]
-	ids := []string{}
-	for _, c := range cat.Components {
-		if c.Defaults[e.Profile] != "unsupported" && c.RunsOn(*env) {
-			ids = append(ids, c.ID)
+	type job struct {
+		Profile   string `json:"profile"`
+		Component string `json:"component"`
+	}
+	var jobs []job
+	for _, p := range recs.Profiles {
+		for _, c := range cat.Components {
+			if c.Defaults[p] != "unsupported" {
+				jobs = append(jobs, job{p, c.ID})
+			}
 		}
 	}
 	return json.NewEncoder(os.Stdout).Encode(map[string]any{
-		"components": ids, "version": e.Version,
+		"include": jobs, "version": cfg.E2E.Version,
 	})
 }
 
@@ -113,9 +117,8 @@ func recommended(cat *recs.Catalog, profile string) []string {
 // config is config/kubernetes.yaml.
 type config struct {
 	Versions []string `yaml:"versions"`
-	E2E      map[string]struct {
-		Profile string `yaml:"profile"`
-		Version string `yaml:"version"`
+	E2E      struct {
+		Version string `yaml:"version"` // kindest/node
 	} `yaml:"e2e"`
 }
 

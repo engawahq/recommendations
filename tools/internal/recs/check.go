@@ -46,19 +46,7 @@ func Check(root string, cat *Catalog) error {
 		return err
 	}
 
-	var clusters struct {
-		E2E map[string]any `yaml:"e2e"`
-	}
-	if err := ReadYAML(filepath.Join(root, "config", "kubernetes.yaml"), &clusters); err != nil {
-		return err
-	}
-
 	for _, c := range cat.Components {
-		for _, d := range c.Distributions {
-			if clusters.E2E[d] == nil {
-				fail(c.Path, "distributions: %s is not an e2e cluster in config/kubernetes.yaml", d)
-			}
-		}
 		for _, id := range licenseIDs(c.License) {
 			if !slices.Contains(licenses.OSIApproved, id) {
 				fail(c.Path, "license %s is not OSI-approved", id)

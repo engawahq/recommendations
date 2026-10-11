@@ -1,15 +1,14 @@
 # Test-only values merged after the profile values in e2e runs. They make a
-# component installable in CI and are never part of a recommendation.
+# component installable on kind and are never part of a recommendation.
 overrides:
-  kind:
-    metrics/metrics-server:
-      metrics-server: |
-        args:
-          # kind's kubelets serve self-signed certificates.
-          - --metric-resolution=15s
-          - --kubelet-insecure-tls
-    ingress/traefik:
-      traefik: |
-        service:
-          # kind has no load balancer; helm --wait would wait for an external IP forever.
-          type: NodePort
+  metrics/metrics-server:
+    metrics-server: |
+      args:
+        # kind's kubelets serve self-signed certificates.
+        - --metric-resolution=15s
+        - --kubelet-insecure-tls
+  ingress/traefik:
+    traefik: |
+      service:
+        # kind has no load balancer; helm --wait would wait for an external IP forever.
+        type: NodePort

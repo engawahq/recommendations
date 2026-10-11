@@ -104,12 +104,6 @@ func (r Release) Kind() string {
 }
 
 // Release returns the named release.
-// RunsOn reports whether c applies to a Kubernetes distribution (an e2e
-// cluster name); no distributions means any.
-func (c *Component) RunsOn(dist string) bool {
-	return len(c.Distributions) == 0 || slices.Contains(c.Distributions, dist)
-}
-
 func (c *Component) Release(name string) (Release, bool) {
 	i := slices.IndexFunc(c.Releases, func(r Release) bool { return r.Name == name })
 	if i < 0 {

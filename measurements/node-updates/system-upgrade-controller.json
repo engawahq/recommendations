@@ -1,9 +1,17 @@
 {
   "component": "node-updates/system-upgrade-controller",
   "environments": {
-    "k3s-v1.37.1+k3s1": {
-      "profile": "single-node",
-      "idleMemoryMiB": 13,
+    "single-node-v1.36.4": {
+      "idleMemoryMiB": 11,
+      "idleCPUm": 0,
+      "versions": {
+        "controller": "v0.20.2",
+        "crds": "v0.20.2"
+      },
+      "measuredAt": "2026-10-11"
+    },
+    "multi-node-v1.36.4": {
+      "idleMemoryMiB": 11,
       "idleCPUm": 0,
       "versions": {
         "controller": "v0.20.2",

@@ -1,7 +1,7 @@
-# Installs every component on k3s and KubeSolo (single-node) and kind (multi-node):
-# dependencies first, smoke test, idle memory and CPU, uninstall, residue
-# check, and an upgrade from the latest release when its version differs.
-# Runs on amd64; local runs on Apple Silicon cover arm64.
+# Installs every component on kind, one node for single-node and three for
+# multi-node: dependencies first, smoke test, idle memory and CPU, uninstall,
+# residue check, and an upgrade from the latest release when its version
+# differs. Runs on amd64; local runs on Apple Silicon cover arm64.
 name: e2e
 
 on:
@@ -11,150 +11,53 @@ permissions:
   contents: read
 
 jobs:
-  components:
+  matrix:
     runs-on: ubuntu-slim
     outputs:
-      k3s: ${{ steps.list.outputs.k3s }}
-      kind: ${{ steps.list.outputs.kind }}
-      kubesolo: ${{ steps.list.outputs.kubesolo }}
+      matrix: ${{ steps.list.outputs.matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - id: list
-        run: |
-          for env in k3s kind kubesolo; do
-            echo "$env=$(go run ./tools/cmd/recs list -env "$env")"
-          done >> "$GITHUB_OUTPUT"
+        run: echo "matrix=$(go run ./tools/cmd/recs list)" >> "$GITHUB_OUTPUT"
 
-  k3s:
-    needs: components
+  e2e:
+    needs: matrix
     runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
-        component: ${{ fromJSON(needs.components.outputs.k3s).components }}
-        include:
-          # Measures the empty cluster for the budget.
-          - component: baseline
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: DeterminateSystems/determinate-nix-action@d0c908e6cbe9f89f36ed8205a3ab6f092636916a # v3.23.1
-      - name: Install k3s without bundled Traefik and metrics-server
-        run: |
-          curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION='${{ fromJSON(needs.components.outputs.k3s).version }}' \
-            sh -s - --disable=traefik,metrics-server --write-kubeconfig-mode=644
-          mkdir -p ~/.kube && cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
-          kubectl -n kube-system wait --for=condition=Available deploy --all --timeout=5m
-      - name: Previous release (upgrade test)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release download --pattern index.json --output previous.json || true
-      - name: e2e
-        run: |
-          if [ '${{ matrix.component }}' = baseline ]; then
-            sleep 60
-            nix develop -c go run ./tools/cmd/recs e2e -env k3s -baseline -write
-          else
-            nix develop -c go run ./tools/cmd/recs e2e -env k3s -write \
-              $([ -f previous.json ] && echo -previous previous.json) '${{ matrix.component }}'
-          fi
-      - id: name
-        run: echo "name=$(echo '${{ matrix.component }}' | tr / -)" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
-        with:
-          name: measurements-k3s-${{ steps.name.outputs.name }}
-          path: measurements/
-          if-no-files-found: ignore
-
-  kind:
-    needs: components
-    runs-on: ubuntu-26.04
-    strategy:
-      fail-fast: false
-      matrix:
-        component: ${{ fromJSON(needs.components.outputs.kind).components }}
+        include: ${{ fromJSON(needs.matrix.outputs.matrix).include }}
+    name: ${{ matrix.profile }} ${{ matrix.component }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: DeterminateSystems/determinate-nix-action@d0c908e6cbe9f89f36ed8205a3ab6f092636916a # v3.23.1
       - name: Create kind cluster
-        run: nix develop -c kind create cluster --config .github/kind.yaml --image 'kindest/node:${{ fromJSON(needs.components.outputs.kind).version }}' --wait 5m
+        run: |
+          nix develop -c kind create cluster --wait 5m \
+            --image 'kindest/node:${{ fromJSON(needs.matrix.outputs.matrix).version }}' \
+            $([ '${{ matrix.profile }}' = multi-node ] && echo --config .github/kind.yaml)
       - name: Previous release (upgrade test)
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release download --pattern index.json --output previous.json || true
       - name: e2e
         run: |
-          nix develop -c go run ./tools/cmd/recs e2e -env kind -write \
+          nix develop -c go run ./tools/cmd/recs e2e -profile '${{ matrix.profile }}' -write \
             $([ -f previous.json ] && echo -previous previous.json) '${{ matrix.component }}'
       - id: name
-        run: echo "name=$(echo '${{ matrix.component }}' | tr / -)" >> "$GITHUB_OUTPUT"
+        run: echo "name=$(echo '${{ matrix.profile }}-${{ matrix.component }}' | tr / -)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: measurements-kind-${{ steps.name.outputs.name }}
-          path: measurements/
-          if-no-files-found: ignore
-
-  kubesolo:
-    needs: components
-    runs-on: ubuntu-26.04
-    strategy:
-      fail-fast: false
-      matrix:
-        component: ${{ fromJSON(needs.components.outputs.kubesolo).components }}
-        include:
-          # Measures the empty cluster for the budget.
-          - component: baseline
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: DeterminateSystems/determinate-nix-action@d0c908e6cbe9f89f36ed8205a3ab6f092636916a # v3.23.1
-      - name: Remove Docker
-        run: |
-          # The KubeSolo installer refuses to run next to Docker.
-          sudo systemctl disable --now docker.socket docker containerd
-          sudo apt-get purge -y $(dpkg-query -W -f='${Package}\n' | grep -E '^(docker|containerd|moby)')
-          sudo rm -f /var/run/docker.sock
-          # Docker leaves FORWARD policy DROP until a reboot, which cuts pods off.
-          for t in filter nat mangle; do sudo iptables -t $t -F; sudo iptables -t $t -X; done
-          sudo iptables -P FORWARD ACCEPT
-          # KubeSolo reaches the kubelet by hostname; 127.0.1.1 makes the API
-          # server refuse to proxy to it (kubelet stats, used for measuring).
-          sudo sed -i "s/^127\.0\.1\.1\s.*/$(hostname -I | cut -d' ' -f1) $(hostname)/" /etc/hosts
-      - name: Install KubeSolo
-        run: |
-          curl -sfL https://get.kubesolo.io | sudo sh -s -- --version='${{ fromJSON(needs.components.outputs.kubesolo).version }}'
-          for _ in $(seq 60); do sudo test -f /var/lib/kubesolo/pki/admin/admin.kubeconfig && break; sleep 5; done
-          sudo install -D -m 600 -o "$USER" /var/lib/kubesolo/pki/admin/admin.kubeconfig ~/.kube/config
-          kubectl wait --for=condition=Ready node --all --timeout=5m
-          for _ in $(seq 60); do [ -n "$(kubectl get pods -A -o name)" ] && break; sleep 5; done
-          kubectl wait --for=condition=Ready pod -A --all --timeout=5m
-      - name: Previous release (upgrade test)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release download --pattern index.json --output previous.json || true
-      - name: e2e
-        run: |
-          if [ '${{ matrix.component }}' = baseline ]; then
-            sleep 60
-            nix develop -c go run ./tools/cmd/recs e2e -env kubesolo -baseline -write
-          else
-            nix develop -c go run ./tools/cmd/recs e2e -env kubesolo -write \
-              $([ -f previous.json ] && echo -previous previous.json) '${{ matrix.component }}'
-          fi
-      - id: name
-        run: echo "name=$(echo '${{ matrix.component }}' | tr / -)" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
-        with:
-          name: measurements-kubesolo-${{ steps.name.outputs.name }}
+          name: measurements-${{ steps.name.outputs.name }}
           path: measurements/
           if-no-files-found: ignore
 
   budget:
-    needs: [k3s, kubesolo]
+    needs: e2e
     runs-on: ubuntu-slim
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -163,12 +66,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: measurements-k3s-*
-          path: measurements/
-          merge-multiple: true
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          pattern: measurements-kubesolo-*
+          pattern: measurements-single-node-*
           path: measurements/
           merge-multiple: true
       - run: go run ./tools/cmd/recs budget

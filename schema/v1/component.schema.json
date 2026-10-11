@@ -30,10 +30,10 @@
     },
     "distributions": {
       "type": "array",
-      "description": "Kubernetes distributions it applies to, named as the e2e clusters in config/kubernetes.yaml (k3s, kind, kubesolo). Omitted: any.",
+      "description": "Kubernetes distributions it applies to; omitted means any. Information for consumers; e2e runs on kind regardless.",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }
+      "items": { "enum": ["k3s", "rke2", "k0s", "kubesolo", "microk8s", "kubeadm"] }
     },
     "persistsData": { "type": "boolean", "description": "Keeps state in volumes; uninstalling loses data." },
     "disruptsTraffic": { "type": "boolean", "description": "Changes to it can interrupt serving traffic." },

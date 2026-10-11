@@ -1,17 +1,7 @@
 {
   "component": "observability-operator/victoria-metrics-operator",
   "environments": {
-    "k3s-v1.37.1+k3s1": {
-      "profile": "single-node",
-      "idleMemoryMiB": 21,
-      "idleCPUm": 1,
-      "versions": {
-        "operator": "0.68.1"
-      },
-      "measuredAt": "2026-10-11"
-    },
-    "kind-v1.36.4": {
-      "profile": "multi-node",
+    "multi-node-v1.36.4": {
       "idleMemoryMiB": 19,
       "idleCPUm": 1,
       "versions": {
@@ -19,10 +9,9 @@
       },
       "measuredAt": "2026-10-11"
     },
-    "kubesolo-v1.35.7+kubesolo-v1.2.1": {
-      "profile": "single-node",
-      "idleMemoryMiB": 22,
-      "idleCPUm": 2,
+    "single-node-v1.36.4": {
+      "idleMemoryMiB": 19,
+      "idleCPUm": 1,
       "versions": {
         "operator": "0.68.1"
       },

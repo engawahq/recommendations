@@ -2,17 +2,7 @@
 # (helm template --kube-version, then kubeconform). Keep the newest four minors.
 versions: ["1.34.0", "1.35.0", "1.36.0", "1.37.0"]
 
-# Clusters the e2e tests install on. CI starts each of them; see .github/workflows.
+# e2e clusters are kind: one node for single-node, three (.github/kind.yaml)
+# for multi-node. Distributions differ little for these components; see README.
 e2e:
-  k3s:
-    # Installed with --disable=traefik,metrics-server; both come from their charts.
-    profile: single-node
-    version: v1.37.1+k3s1 # renovate: github-releases k3s-io/k3s
-  kind:
-    # One control plane and two workers, so multi-node values (replicas, PDBs) are exercised.
-    profile: multi-node
-    version: v1.36.4 # renovate: docker kindest/node
-  kubesolo:
-    # Single-process distribution without etcd or a scheduler; a k3s alternative for small nodes.
-    profile: single-node
-    version: v1.2.1 # renovate: github-releases portainer/kubesolo
+  version: v1.36.4 # renovate: docker kindest/node

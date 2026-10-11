@@ -9,46 +9,35 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
+	"slices"
 	"time"
 
 	"github.com/engawa/recommendations/tools/internal/recs"
 )
 
-// measurement is measurements/<capability>/<upstream>.json, or the cluster
-// baseline in measurements/<env>.json. Environments are keyed
-// "<env>-<server version>".
+// measurement is measurements/<capability>/<upstream>.json. Environments are
+// keyed "<profile>-<server version>".
 type measurement struct {
 	Component    string                 `json:"component,omitempty"`
 	Environments map[string]environment `json:"environments"`
 }
 
 type environment struct {
-	Profile       string            `json:"profile,omitempty"`
 	IdleMemoryMiB float64           `json:"idleMemoryMiB"`
 	IdleCPUm      float64           `json:"idleCPUm"`
-	PodsMiB       float64           `json:"podsMiB,omitempty"`      // baseline only
-	ProcessesMiB  float64           `json:"processesMiB,omitempty"` // baseline only
 	Versions      map[string]string `json:"versions,omitempty"`
 	MeasuredAt    string            `json:"measuredAt"`
 }
 
 func e2e(fs *flag.FlagSet, cat *recs.Catalog) error {
-	env := fs.String("env", "", "an e2e cluster in config/kubernetes.yaml")
+	profile := fs.String("profile", "", "single-node or multi-node; the current cluster must match it")
 	write := fs.Bool("write", false, "update measurements/ for passing components")
 	previous := fs.String("previous", "", "previous release's index.json, for upgrade tests")
-	baseline := fs.Bool("baseline", false, "measure the empty cluster instead of components")
 	settle := fs.Duration("settle", time.Minute, "wait after install before measuring")
 	fs.Parse(os.Args[2:])
 
-	cfg, err := loadConfig()
-	if err != nil {
-		return err
-	}
-	profile := cfg.E2E[*env].Profile
-	if profile == "" {
-		return fmt.Errorf("unknown -env %q", *env)
+	if !slices.Contains(recs.Profiles, *profile) {
+		return fmt.Errorf("unknown -profile %q", *profile)
 	}
 	out, err := recs.Run(nil, "kubectl", "version", "-o", "json")
 	if err != nil {
@@ -58,18 +47,15 @@ func e2e(fs *flag.FlagSet, cat *recs.Catalog) error {
 	if err := json.Unmarshal([]byte(out), &version); err != nil {
 		return err
 	}
-	key := *env + "-" + version.ServerVersion.GitVersion
-	if *baseline {
-		return measureBaseline(*env, key, *write)
-	}
+	key := *profile + "-" + version.ServerVersion.GitVersion
 
 	var e2eCfg struct {
-		Overrides map[string]map[string]map[string]string `yaml:"overrides"`
+		Overrides map[string]map[string]string `yaml:"overrides"`
 	}
 	if err := recs.ReadYAML("config/e2e.yaml", &e2eCfg); err != nil {
 		return err
 	}
-	t := &recs.Tester{Catalog: cat, Profile: profile, Overrides: e2eCfg.Overrides[*env], Settle: *settle}
+	t := &recs.Tester{Catalog: cat, Profile: *profile, Overrides: e2eCfg.Overrides, Settle: *settle}
 	if *previous != "" {
 		if t.Previous, err = readPrevious(*previous); err != nil {
 			return err
@@ -82,20 +68,20 @@ func e2e(fs *flag.FlagSet, cat *recs.Catalog) error {
 
 	var results []recs.Result
 	for _, c := range comps {
-		if c.Defaults[profile] == "unsupported" || !c.RunsOn(*env) {
+		if c.Defaults[*profile] == "unsupported" {
 			continue
 		}
 		slog.Info("testing", "component", c.ID, "env", key)
 		res := t.Test(c.ID)
 		results = append(results, res)
 		if res.Err == nil && *write {
-			if err := writeMeasurement(c, key, profile, res); err != nil {
+			if err := writeMeasurement(c, key, res); err != nil {
 				return err
 			}
 		}
 	}
 
-	fmt.Printf("\n%s (%s):\n", key, profile)
+	fmt.Printf("\n%s:\n", key)
 	var errs []error
 	for _, r := range results {
 		status := fmt.Sprintf("PASS %4.0f MiB %3.0fm CPU", r.IdleMemoryMiB, r.IdleCPUm)
@@ -129,7 +115,7 @@ func readPrevious(path string) (map[string]*recs.Component, error) {
 
 func measurementPath(id string) string { return filepath.Join("measurements", id+".json") }
 
-func writeMeasurement(c *recs.Component, key, profile string, res recs.Result) error {
+func writeMeasurement(c *recs.Component, key string, res recs.Result) error {
 	m := readMeasurement(measurementPath(c.ID))
 	m.Component = c.ID
 	versions := map[string]string{}
@@ -139,67 +125,12 @@ func writeMeasurement(c *recs.Component, key, profile string, res recs.Result) e
 		}
 	}
 	m.Environments[key] = environment{
-		Profile:       profile,
 		IdleMemoryMiB: math.Round(res.IdleMemoryMiB),
 		IdleCPUm:      math.Round(res.IdleCPUm),
 		Versions:      versions,
 		MeasuredAt:    time.Now().UTC().Format(time.DateOnly),
 	}
 	return writeJSON(measurementPath(c.ID), m)
-}
-
-// measureBaseline records the empty cluster: its pods plus, for a
-// distribution running as a systemd service named after the env (k3s,
-// kubesolo), the service itself (API server, containerd, shims), which pod
-// metrics miss.
-func measureBaseline(env, key string, write bool) error {
-	pods, cpu, err := recs.SampleUsage(nil)
-	if err != nil {
-		return err
-	}
-	var procs float64
-	if cgroup := "/sys/fs/cgroup/system.slice/" + env + ".service"; dirExists(cgroup) {
-		if procs, err = unreclaimableMiB(cgroup); err != nil {
-			return err
-		}
-	}
-	slog.Info("baseline", "env", key, "podsMiB", int(pods), "serviceMiB", int(procs))
-	if !write {
-		return nil
-	}
-	path := measurementPath(env)
-	m := readMeasurement(path)
-	m.Environments[key] = environment{
-		IdleMemoryMiB: math.Round(pods + procs),
-		IdleCPUm:      math.Round(cpu),
-		PodsMiB:       math.Round(pods),
-		ProcessesMiB:  math.Round(procs),
-		MeasuredAt:    time.Now().UTC().Format(time.DateOnly),
-	}
-	return writeJSON(path, m)
-}
-
-// unreclaimableMiB returns a cgroup's anonymous and kernel memory: what it
-// needs resident. Page cache (image layers, the k3s binary) is reclaimable.
-func unreclaimableMiB(cgroup string) (float64, error) {
-	stat, err := os.ReadFile(filepath.Join(cgroup, "memory.stat"))
-	if err != nil {
-		return 0, err
-	}
-	var bytes float64
-	for _, line := range strings.Split(string(stat), "\n") {
-		k, v, _ := strings.Cut(line, " ")
-		if k == "anon" || k == "kernel" {
-			n, _ := strconv.ParseFloat(v, 64)
-			bytes += n
-		}
-	}
-	return bytes / (1 << 20), nil
-}
-
-func dirExists(path string) bool {
-	fi, err := os.Stat(path)
-	return err == nil && fi.IsDir()
 }
 
 func readMeasurement(path string) measurement {

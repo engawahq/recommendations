@@ -12,7 +12,7 @@ manifests, or k3s `HelmChart` objects.
 capabilities/<capability>/<upstream>.yaml   one file per capability × upstream
 schema/v1/component.schema.json             JSON Schema for those files
 config/licenses.yaml                        OSI-approved SPDX identifiers
-config/kubernetes.yaml                      Kubernetes versions; e2e clusters
+config/kubernetes.yaml                      Kubernetes versions; kind node version for e2e
 config/budget.yaml                          single-node memory budget (MiB)
 config/e2e.yaml                             test-only values
 measurements/                               idle memory and CPU, written by CI
@@ -45,10 +45,21 @@ tools/                                      the `recs` command (Go)
 is not offered. Each file's `detection` rules find an existing installation so
 it can be reused instead.
 
-k3s is assumed to run with `--disable=traefik,metrics-server`, so both come
-from their charts like on any other cluster. KubeSolo is tested as a lighter
-single-node alternative; its default storage class retains volumes after
-their claims are deleted.
+## Distributions
+
+Components are tested on kind: one node for single-node, three for
+multi-node. They behave the same on other distributions apart from these
+known differences:
+
+- k3s: run it with `--disable=traefik,metrics-server` so both come from their
+  charts. It installs its own Gateway API CRDs.
+- KubeSolo: its default storage class retains volumes (and their data) after
+  their claims are deleted. On Ubuntu, map the hostname to the node IP in
+  `/etc/hosts`; with `127.0.1.1` the API server refuses to proxy to the
+  kubelet. Its node has no control-plane label.
+- `distributions` limits a component to some distributions
+  (system-upgrade-controller: k3s).
+
 
 ## Data format
 
@@ -103,13 +114,14 @@ cert-manager, and `recs render` fails if two renders differ.
    or Kubernetes SIG projects.
 2. Create `capabilities/<capability>/<upstream>.yaml` from a similar file. Give
    both profiles values, each with a comment saying why.
-3. Check locally (`nix develop` provides Go, Helm, kubectl, kubeconform, kind
-   and k3d):
+3. Check locally (`nix develop` provides Go, Helm, kubectl, kubeconform and
+   kind):
 
    ```sh
    go run ./tools/cmd/recs validate               # schema, license, references, comments
    go run ./tools/cmd/recs render -kubeconform    # helm template + kubeconform
-   go run ./tools/cmd/recs e2e -env kind <id>     # needs a cluster (.github/kind.yaml)
+   kind create cluster                            # --config .github/kind.yaml for multi-node
+   go run ./tools/cmd/recs e2e -profile single-node <id>
    ```
 
 4. Open a pull request with signed-off commits (`git commit -s`).
@@ -123,12 +135,10 @@ Every pull request:
 3. renders every profile twice (output must be identical) and validates it
    with kubeconform for each version in `config/kubernetes.yaml`, checking
    custom resources against the CRDs rendered with them;
-4. installs each component on k3s and KubeSolo (single-node) and kind (three
-   nodes, multi-node), on amd64, skipping components whose `distributions`
-   leave that cluster out: dependencies first, smoke test, idle memory and
-   CPU, uninstall, and fails on anything left behind;
-5. checks that k3s and KubeSolo, each with the single-node recommended set
-   that runs on it, fit `config/budget.yaml`;
+4. installs each component on kind for each profile, on amd64: dependencies
+   first, smoke test, idle memory and CPU, uninstall, and fails on anything
+   left behind;
+5. checks that the single-node recommended set fits `config/budget.yaml`;
 6. upgrades from the latest release's version when it changed.
 
 After merges and weekly, `measure.yml` opens a pull request with fresh
