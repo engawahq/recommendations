@@ -1,0 +1,163 @@
+# Recommendations
+
+A tested catalog of Kubernetes components: for each capability, which upstream
+chart, which version, which values, and why. It is data, not an installer.
+CI installs and measures every component, and each release publishes a signed
+bundle any tool can read to generate `helm install` commands, Flux or Argo CD
+manifests, or k3s `HelmChart` objects.
+
+## Layout
+
+```text
+capabilities/<capability>/<upstream>.yaml   one file per capability × upstream
+schema/v1/component.schema.json             JSON Schema for those files
+config/licenses.yaml                        OSI-approved SPDX identifiers
+config/kubernetes.yaml                      Kubernetes versions; e2e clusters
+config/budget.yaml                          single-node memory budget (MiB)
+config/e2e.yaml                             test-only values
+measurements/                               idle memory and CPU, written by CI
+tools/                                      the `recs` command (Go)
+```
+
+## Capabilities
+
+| Capability | Upstream | single-node | multi-node |
+| --- | --- | --- | --- |
+| ingress | Traefik | recommended | recommended |
+| certificates | cert-manager | recommended | recommended |
+| observability-operator | VictoriaMetrics operator | recommended | recommended |
+| metrics | VictoriaMetrics (k8s stack) | recommended | recommended |
+| metrics | metrics-server | recommended | recommended |
+| logs | VictoriaLogs (via the operator) | recommended | recommended |
+| node-updates | system-upgrade-controller (k3s only) | recommended | recommended |
+| intrusion-prevention | CrowdSec | optional | optional |
+| volume-backup | K8up | optional | optional |
+| volume-backup | Velero (administrators only) | optional | optional |
+| event-autoscaling | KEDA | optional | recommended |
+| event-autoscaling | KEDA HTTP add-on (beta) | optional | optional |
+| uptime-probes | Prometheus blackbox exporter | optional | recommended |
+| runtime-security | Falco | optional | optional |
+| vulnerability-scanning | Trivy Operator | optional | optional |
+| dns | ExternalDNS | optional | optional |
+| resource-recommendations | Vertical Pod Autoscaler (recommender) | optional | optional |
+
+`recommended` is on by default, `optional` is offered but off, `unsupported`
+is not offered. Each file's `detection` rules find an existing installation so
+it can be reused instead.
+
+k3s is assumed to run with `--disable=traefik,metrics-server`, so both come
+from their charts like on any other cluster. KubeSolo is tested as a lighter
+single-node alternative; its default storage class retains volumes after
+their claims are deleted.
+
+## Data format
+
+The path names the component: `capabilities/<capability>/<upstream>.yaml`.
+Abridged; the schema documents every field.
+
+```yaml
+displayName: Traefik Proxy
+homepage: https://traefik.io/traefik/
+license: MIT                      # SPDX, OSI-approved
+maturity: independent             # cncf-graduated | cncf-incubating | cncf-sandbox | kubernetes-sig | independent
+rationale: Why it is recommended, in one or two sentences.
+defaults: {single-node: recommended, multi-node: recommended}
+dependsOn: [certificates]         # <capability> or <capability>/<upstream>
+distributions: [k3s]              # optional; omitted means any cluster
+
+releases:                         # installed in order
+  - name: traefik
+    namespace: traefik
+    chart: oci://ghcr.io/traefik/helm/traefik   # or repo: https://… plus chart: <name>
+    version: 41.7.1                             # exact; Renovate bumps it
+    values: |                                   # shared by every profile
+      gatewayClass:
+        # Every value has a comment saying why; `recs validate` enforces it.
+        enabled: true
+    profiles:                                   # merged over values like helm -f
+      single-node: |
+        deployment:
+          # One node: a second replica gains nothing.
+          replicas: 1
+  - name: crds
+    namespace: kube-system
+    urls: [https://github.com/…/releases/download/{version}/standard-install.yaml]
+    version: v1.6.2
+  # or: manifests: |  objects applied as written
+
+inputs: []        # values to ask for or generate; Secrets are created from them
+contributes: []   # values added to another component's release (CrowdSec -> Traefik)
+detection: {...}  # CRDs, API services, Helm charts, workloads
+security: {...}   # RBAC summary, cluster-wide, privileged, egress, credentials, tenant risks
+smoke: []         # extra e2e checks
+leftovers: []     # what the upstream keeps on uninstall (e.g. CRDs)
+```
+
+Installs are deterministic: charts never generate secrets or certificates.
+Generated values are `inputs` (stored in Secrets), certificates come from
+cert-manager, and `recs render` fails if two renders differ.
+
+## Adding an upstream
+
+1. Pick a capability and an upstream with an OSI-approved license; prefer CNCF
+   or Kubernetes SIG projects.
+2. Create `capabilities/<capability>/<upstream>.yaml` from a similar file. Give
+   both profiles values, each with a comment saying why.
+3. Check locally (`nix develop` provides Go, Helm, kubectl, kubeconform, kind
+   and k3d):
+
+   ```sh
+   go run ./tools/cmd/recs validate               # schema, license, references, comments
+   go run ./tools/cmd/recs render -kubeconform    # helm template + kubeconform
+   go run ./tools/cmd/recs e2e -env kind <id>     # needs a cluster (.github/kind.yaml)
+   ```
+
+4. Open a pull request with signed-off commits (`git commit -s`).
+
+## CI
+
+Every pull request:
+
+1. validates every file against the schema;
+2. rejects licenses that are not OSI-approved;
+3. renders every profile twice (output must be identical) and validates it
+   with kubeconform for each version in `config/kubernetes.yaml`, checking
+   custom resources against the CRDs rendered with them;
+4. installs each component on k3s and KubeSolo (single-node) and kind (three
+   nodes, multi-node), on amd64, skipping components whose `distributions`
+   leave that cluster out: dependencies first, smoke test, idle memory and
+   CPU, uninstall, and fails on anything left behind;
+5. checks that k3s and KubeSolo, each with the single-node recommended set
+   that runs on it, fit `config/budget.yaml`;
+6. upgrades from the latest release's version when it changed.
+
+After merges and weekly, `measure.yml` opens a pull request with fresh
+`measurements/`. Renovate opens a pull request for every new upstream version.
+
+## Releases
+
+Tagging `vX.Y.Z` publishes:
+
+- `index.json`: every component with its install order per profile and
+  measurements, recommended components per capability, the budget and the
+  Kubernetes versions;
+- `bundle.tar.gz`: `index.json` plus sources, schema, config and measurements;
+- `checksums.txt`, and a cosign keyless Sigstore bundle for each.
+
+```sh
+cosign verify-blob index.json --bundle index.json.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/engawa/recommendations/.github/workflows/release.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Consumers pin a release, verify it, and read `index.json`. `indexVersion`
+changes only on incompatible changes. A typical consumer runs `detection`,
+offers the recommended components for the cluster's profile, asks for their
+`inputs`, and generates installs in `installOrder`, merging `contributes` into
+their targets.
+
+## License
+
+Apache-2.0. Contributions use the
+[Developer Certificate of Origin](https://developercertificate.org/); see
+[CONTRIBUTING.md](CONTRIBUTING.md).

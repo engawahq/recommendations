@@ -1,0 +1,7 @@
+# Memory budget for the single-node profile, checked on each environment: the
+# empty cluster plus every component whose single-node default is
+# "recommended" and that runs on it, using the idle memory CI measured there
+# (measurements/). Over budget fails CI.
+singleNode:
+  budgetMiB: 1024
+  environments: [k3s, kubesolo]

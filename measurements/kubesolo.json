@@ -1,0 +1,11 @@
+{
+  "environments": {
+    "kubesolo-v1.35.7+kubesolo-v1.2.1": {
+      "idleMemoryMiB": 322,
+      "idleCPUm": 1,
+      "podsMiB": 19,
+      "processesMiB": 303,
+      "measuredAt": "2026-10-11"
+    }
+  }
+}

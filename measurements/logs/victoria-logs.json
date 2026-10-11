@@ -1,0 +1,23 @@
+{
+  "component": "logs/victoria-logs",
+  "environments": {
+    "k3s-v1.37.1+k3s1": {
+      "profile": "single-node",
+      "idleMemoryMiB": 23,
+      "idleCPUm": 1,
+      "measuredAt": "2026-10-11"
+    },
+    "kind-v1.36.4": {
+      "profile": "multi-node",
+      "idleMemoryMiB": 38,
+      "idleCPUm": 3,
+      "measuredAt": "2026-10-11"
+    },
+    "kubesolo-v1.35.7+kubesolo-v1.2.1": {
+      "profile": "single-node",
+      "idleMemoryMiB": 23,
+      "idleCPUm": 3,
+      "measuredAt": "2026-10-11"
+    }
+  }
+}

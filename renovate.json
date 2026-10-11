@@ -1,0 +1,101 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "commitBody": "Signed-off-by: Renovate Bot <bot@renovateapp.com>",
+  "labels": [
+    "dependencies"
+  ],
+  "nix": {
+    "enabled": true
+  },
+  "lockFileMaintenance": {
+    "enabled": true
+  },
+  "customManagers": [
+    {
+      "description": "Helm charts from HTTP repositories",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^capabilities/.+\\.yaml$/"
+      ],
+      "matchStrings": [
+        "repo: (?<registryUrl>https://\\S+)\\n\\s+chart: (?<depName>\\S+)\\n\\s+version: (?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "helm"
+    },
+    {
+      "description": "Helm charts from OCI registries",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^capabilities/.+\\.yaml$/"
+      ],
+      "matchStrings": [
+        "chart: oci://(?<depName>\\S+)\\n\\s+version: (?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "description": "Manifests from GitHub releases",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^capabilities/.+\\.yaml$/"
+      ],
+      "matchStrings": [
+        "- https://github\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/releases/download/\\{version\\}/\\S+\\n\\s+version: (?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "github-releases"
+    },
+    {
+      "description": "Traefik plugins pinned in contributed values",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^capabilities/.+\\.yaml$/"
+      ],
+      "matchStrings": [
+        "moduleName: github\\.com/(?<depName>\\S+)\\n\\s+version: (?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "github-releases"
+    },
+    {
+      "description": "Container images pinned inside values",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^capabilities/.+\\.yaml$/"
+      ],
+      "matchStrings": [
+        "image: (?<depName>[a-z0-9./-]+):(?<currentValue>v[0-9][^\\s\"]*)"
+      ],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "description": "Cluster versions e2e runs on",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^config/kubernetes\\.yaml$/"
+      ],
+      "matchStrings": [
+        "version: (?<currentValue>\\S+) # renovate: (?<datasource>\\S+) (?<depName>\\S+)"
+      ]
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Each upstream gets its own pull request, so CI tests one change at a time",
+      "matchFileNames": [
+        "capabilities/**"
+      ],
+      "groupName": null
+    },
+    {
+      "description": "Pre-1.0 upstreams change behaviour in minor releases; never automerge them",
+      "matchFileNames": [
+        "capabilities/**"
+      ],
+      "matchCurrentVersion": "/^v?0\\./",
+      "automerge": false
+    }
+  ]
+}

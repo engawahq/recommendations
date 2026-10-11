@@ -1,0 +1,32 @@
+{
+  "component": "event-autoscaling/keda-http-add-on",
+  "environments": {
+    "k3s-v1.37.1+k3s1": {
+      "profile": "single-node",
+      "idleMemoryMiB": 36,
+      "idleCPUm": 3,
+      "versions": {
+        "http-add-on": "0.16.0"
+      },
+      "measuredAt": "2026-10-11"
+    },
+    "kind-v1.36.4": {
+      "profile": "multi-node",
+      "idleMemoryMiB": 102,
+      "idleCPUm": 6,
+      "versions": {
+        "http-add-on": "0.16.0"
+      },
+      "measuredAt": "2026-10-11"
+    },
+    "kubesolo-v1.35.7+kubesolo-v1.2.1": {
+      "profile": "single-node",
+      "idleMemoryMiB": 34,
+      "idleCPUm": 7,
+      "versions": {
+        "http-add-on": "0.16.0"
+      },
+      "measuredAt": "2026-10-11"
+    }
+  }
+}

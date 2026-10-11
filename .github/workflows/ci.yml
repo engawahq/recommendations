@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: DCO sign-off
+        if: github.event_name == 'pull_request'
+        run: |
+          fail=0
+          for c in $(git rev-list --no-merges '${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}'); do
+            author=$(git log -1 --format='%an <%ae>' "$c")
+            if ! git log -1 --format='%(trailers:key=Signed-off-by,valueonly)' "$c" | grep -qF "$author"; then
+              echo "::error::commit $c has no 'Signed-off-by: $author' (use git commit -s)"
+              fail=1
+            fi
+          done
+          exit $fail
+      - run: go test ./...
+      - name: Schema, licenses, references, value comments
+        run: go run ./tools/cmd/recs validate
+      - run: go run ./tools/cmd/recs index
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: index
+          path: index.json
+
+  render:
+    runs-on: ubuntu-26.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: DeterminateSystems/determinate-nix-action@d0c908e6cbe9f89f36ed8205a3ab6f092636916a # v3.23.1
+      - name: helm template every profile twice, kubeconform every Kubernetes version
+        run: nix develop -c go run ./tools/cmd/recs render -kubeconform
+
+  e2e:
+    needs: [validate, render]
+    uses: ./.github/workflows/e2e.yml

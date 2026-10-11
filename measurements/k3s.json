@@ -1,0 +1,11 @@
+{
+  "environments": {
+    "k3s-v1.37.1+k3s1": {
+      "idleMemoryMiB": 514,
+      "idleCPUm": 1,
+      "podsMiB": 39,
+      "processesMiB": 475,
+      "measuredAt": "2026-10-11"
+    }
+  }
+}
