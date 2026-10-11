@@ -16,6 +16,22 @@
         "blackbox-exporter": "11.20.0"
       },
       "measuredAt": "2026-10-11"
+    },
+    "multi-node-amd64-v1.36.4": {
+      "idleMemoryMiB": 8,
+      "idleCPUm": 0,
+      "versions": {
+        "blackbox-exporter": "11.20.0"
+      },
+      "measuredAt": "2026-10-11"
+    },
+    "single-node-amd64-v1.36.4": {
+      "idleMemoryMiB": 4,
+      "idleCPUm": 0,
+      "versions": {
+        "blackbox-exporter": "11.20.0"
+      },
+      "measuredAt": "2026-10-11"
     }
   }
 }
