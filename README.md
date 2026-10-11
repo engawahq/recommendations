@@ -135,14 +135,16 @@ Every pull request:
 3. renders every profile twice (output must be identical) and validates it
    with kubeconform for each version in `config/kubernetes.yaml`, checking
    custom resources against the CRDs rendered with them;
-4. installs each component on kind for each profile, on amd64: dependencies
-   first, smoke test, idle memory and CPU, uninstall, and fails on anything
-   left behind;
-5. checks that the single-node recommended set fits `config/budget.yaml`;
+4. installs each changed component and its dependents (every component when
+   `config/`, `tools/` or the cluster changes) on kind for each profile, on
+   amd64 and arm64: dependencies first, smoke test, idle memory and CPU,
+   uninstall, and fails on anything left behind;
+5. checks that the single-node recommended set, measured on amd64, fits
+   `config/budget.yaml`;
 6. upgrades from the latest release's version when it changed.
 
-After merges and weekly, `measure.yml` opens a pull request with fresh
-`measurements/`. Renovate opens a pull request for every new upstream version.
+After merges, `measure.yml` measures the same components and opens a pull
+request with fresh `measurements/`; run it by hand to measure everything. Renovate opens a pull request for every new upstream version.
 
 ## Releases
 

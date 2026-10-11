@@ -1,14 +1,12 @@
-# After a merge (and weekly, to catch upstream drift), run the e2e suite and
-# open a pull request with the measured idle memory and CPU, so measurements/
-# is only ever written by CI.
+# After a merge, measure the changed components and their dependents; on
+# demand, every component. Opens a pull request with the idle memory and CPU,
+# so measurements/ is only ever written by CI.
 name: measure
 
 on:
   push:
     branches: [main]
     paths: [capabilities/**, config/**]
-  schedule:
-    - cron: "0 3 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -33,9 +31,9 @@ jobs:
           path: downloaded/
       - name: Merge measurements from every job
         run: |
-          # Each job added its own environment to a copy of the file; deep-merge
-          # the copies into measurements/.
-          cd downloaded
+          # Each job uploaded its component's file; deep-merge them into
+          # measurements/.
+          mkdir -p downloaded && cd downloaded
           for f in $(find . -name '*.json' | cut -d/ -f3- | sort -u); do
             mkdir -p "../measurements/$(dirname "$f")"
             jq -s 'reduce .[] as $m ({}; . * $m)' $(ls "../measurements/$f" ./*/"$f" 2>/dev/null) > merged.json
@@ -44,9 +42,9 @@ jobs:
       - uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           branch: ci/measurements
-          title: Update measured resource usage
+          title: "chore: update measured resource usage"
           commit-message: |
-            Update measured resource usage
+            chore: update measured resource usage
 
             Signed-off-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
           body: Idle memory and CPU measured by the e2e workflow on single-node and multi-node kind.

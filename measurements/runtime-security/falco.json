@@ -1,7 +1,7 @@
 {
   "component": "runtime-security/falco",
   "environments": {
-    "multi-node-v1.36.4": {
+    "multi-node-arm64-v1.36.4": {
       "idleMemoryMiB": 169,
       "idleCPUm": 17,
       "versions": {
@@ -9,7 +9,7 @@
       },
       "measuredAt": "2026-10-11"
     },
-    "single-node-v1.36.4": {
+    "single-node-arm64-v1.36.4": {
       "idleMemoryMiB": 46,
       "idleCPUm": 4,
       "versions": {

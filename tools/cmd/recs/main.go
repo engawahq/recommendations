@@ -2,7 +2,7 @@
 //
 //	recs validate                    schema, licenses, references, value comments
 //	recs render [ids]                helm template every profile and Kubernetes version, then kubeconform
-//	recs list                        e2e CI matrix (profile × component) as JSON
+//	recs list [-since <ref>]         e2e CI matrix (profile × architecture × component) as JSON
 //	recs e2e -profile <p> [ids]      install, measure, smoke test, uninstall
 //	recs budget                      single-node memory budget
 //	recs index                       write index.json
@@ -14,7 +14,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	"github.com/engawa/recommendations/tools/internal/recs"
 )
@@ -66,26 +69,68 @@ func validate(fs *flag.FlagSet, cat *recs.Catalog) error {
 // list prints the e2e CI matrix: every profile × component it supports, and
 // the kind node version.
 func list(fs *flag.FlagSet, cat *recs.Catalog) error {
+	since := fs.String("since", "", "only components changed since this git commit")
 	fs.Parse(os.Args[2:])
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
 	}
+	var want map[string]bool // nil tests every component
+	if *since != "" && strings.Trim(*since, "0") != "" {
+		out, err := exec.Command("git", "diff", "--name-only", *since, "HEAD").Output()
+		if err != nil {
+			return fmt.Errorf("git diff %s: %w", *since, err)
+		}
+		want = changed(cat, strings.Fields(string(out)))
+	}
 	type job struct {
 		Profile   string `json:"profile"`
+		Arch      string `json:"arch"`
 		Component string `json:"component"`
 	}
 	var jobs []job
 	for _, p := range recs.Profiles {
 		for _, c := range cat.Components {
-			if c.Defaults[p] != "unsupported" {
-				jobs = append(jobs, job{p, c.ID})
+			if c.Defaults[p] == "unsupported" {
+				continue
+			}
+			// A component is retested when it or anything it installs changed.
+			order, err := cat.InstallOrder([]string{c.ID}, p)
+			if err != nil {
+				return err
+			}
+			if want == nil || slices.ContainsFunc(order, func(o *recs.Component) bool { return want[o.ID] }) {
+				for _, arch := range []string{"amd64", "arm64"} {
+					jobs = append(jobs, job{p, arch, c.ID})
+				}
 			}
 		}
 	}
 	return json.NewEncoder(os.Stdout).Encode(map[string]any{
 		"include": jobs, "version": cfg.E2E.Version,
 	})
+}
+
+// shared lists the files every e2e run depends on.
+var shared = []string{"config/", "tools/", "go.", "flake.", ".github/kind.yaml", ".github/workflows/e2e.yml"}
+
+// changed returns the IDs of the components whose files changed, or nil when
+// a shared file changed.
+func changed(cat *recs.Catalog, files []string) map[string]bool {
+	ids := map[string]bool{}
+	for _, f := range files {
+		for _, s := range shared {
+			if strings.HasPrefix(f, s) {
+				return nil
+			}
+		}
+		for _, c := range cat.Components {
+			if c.Path == f {
+				ids[c.ID] = true
+			}
+		}
+	}
+	return ids
 }
 
 func recommended(cat *recs.Catalog, profile string) []string {

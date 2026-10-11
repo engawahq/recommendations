@@ -1,7 +1,7 @@
 {
   "component": "event-autoscaling/keda-http-add-on",
   "environments": {
-    "multi-node-v1.36.4": {
+    "multi-node-arm64-v1.36.4": {
       "idleMemoryMiB": 102,
       "idleCPUm": 6,
       "versions": {
@@ -9,7 +9,7 @@
       },
       "measuredAt": "2026-10-11"
     },
-    "single-node-v1.36.4": {
+    "single-node-arm64-v1.36.4": {
       "idleMemoryMiB": 35,
       "idleCPUm": 3,
       "versions": {

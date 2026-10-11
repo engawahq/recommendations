@@ -1,7 +1,9 @@
 # Installs every component on kind, one node for single-node and three for
 # multi-node: dependencies first, smoke test, idle memory and CPU, uninstall,
 # residue check, and an upgrade from the latest release when its version
-# differs. Runs on amd64; local runs on Apple Silicon cover arm64.
+# differs, on amd64 and arm64. Pull requests and pushes test only the
+# components they change and their dependents, or every component when a
+# shared file (config, tools, the cluster) changes.
 name: e2e
 
 on:
@@ -17,20 +19,25 @@ jobs:
       matrix: ${{ steps.list.outputs.matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - id: list
-        run: echo "matrix=$(go run ./tools/cmd/recs list)" >> "$GITHUB_OUTPUT"
+        env:
+          SINCE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: echo "matrix=$(go run ./tools/cmd/recs list -since "$SINCE")" >> "$GITHUB_OUTPUT"
 
   e2e:
     needs: matrix
-    runs-on: ubuntu-26.04
+    if: fromJSON(needs.matrix.outputs.matrix).include[0]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-26.04-arm' || 'ubuntu-26.04' }}
     strategy:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.matrix.outputs.matrix).include }}
-    name: ${{ matrix.profile }} ${{ matrix.component }}
+    name: ${{ matrix.profile }} ${{ matrix.arch }} ${{ matrix.component }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: DeterminateSystems/determinate-nix-action@d0c908e6cbe9f89f36ed8205a3ab6f092636916a # v3.23.1
@@ -47,8 +54,11 @@ jobs:
         run: |
           nix develop -c go run ./tools/cmd/recs e2e -profile '${{ matrix.profile }}' -write \
             $([ -f previous.json ] && echo -previous previous.json) '${{ matrix.component }}'
+      - name: Keep only this component's measurement
+        if: always()
+        run: find measurements -type f ! -path 'measurements/${{ matrix.component }}.json' -delete
       - id: name
-        run: echo "name=$(echo '${{ matrix.profile }}-${{ matrix.component }}' | tr / -)" >> "$GITHUB_OUTPUT"
+        run: echo "name=$(echo '${{ matrix.profile }}-${{ matrix.arch }}-${{ matrix.component }}' | tr / -)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -66,7 +76,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: measurements-single-node-*
+          pattern: measurements-single-node-amd64-*
           path: measurements/
           merge-multiple: true
       - run: go run ./tools/cmd/recs budget
