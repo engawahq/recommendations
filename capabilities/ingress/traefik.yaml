@@ -90,6 +90,8 @@ releases:
         deployment:
           # One pod per node, so every node keeps client addresses under the
           # Local traffic policy; k3s ServiceLB source-NATs on nodes without one.
+          # From a Deployment, annotate it helm.sh/resource-policy=keep before the
+          # upgrade and delete it after, or ingress drops for a few seconds.
           kind: DaemonSet
         tolerations:
           # The taints k3s ServiceLB tolerates, so Traefik runs wherever it listens.
