@@ -10,12 +10,12 @@
       "measuredAt": "2026-10-11"
     },
     "single-node-arm64-v1.36.4": {
-      "idleMemoryMiB": 76,
+      "idleMemoryMiB": 82,
       "idleCPUm": 1,
       "versions": {
         "crowdsec": "0.24.2"
       },
-      "measuredAt": "2026-10-11"
+      "measuredAt": "2026-10-13"
     },
     "multi-node-amd64-v1.36.4": {
       "idleMemoryMiB": 117,

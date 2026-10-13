@@ -11,13 +11,13 @@
       "measuredAt": "2026-10-11"
     },
     "single-node-arm64-v1.36.4": {
-      "idleMemoryMiB": 23,
+      "idleMemoryMiB": 22,
       "idleCPUm": 0,
       "versions": {
         "gateway-api-crds": "v1.6.2",
         "traefik": "41.7.1"
       },
-      "measuredAt": "2026-10-11"
+      "measuredAt": "2026-10-13"
     },
     "multi-node-amd64-v1.36.4": {
       "idleMemoryMiB": 45,

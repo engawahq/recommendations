@@ -7,9 +7,9 @@
       "measuredAt": "2026-10-11"
     },
     "single-node-arm64-v1.36.4": {
-      "idleMemoryMiB": 32,
+      "idleMemoryMiB": 35,
       "idleCPUm": 2,
-      "measuredAt": "2026-10-11"
+      "measuredAt": "2026-10-13"
     },
     "multi-node-amd64-v1.36.4": {
       "idleMemoryMiB": 32,
