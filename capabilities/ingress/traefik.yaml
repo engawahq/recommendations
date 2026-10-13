@@ -91,6 +91,13 @@ releases:
           # One pod per node, so every node keeps client addresses under the
           # Local traffic policy; k3s ServiceLB source-NATs on nodes without one.
           kind: DaemonSet
+        tolerations:
+          # The taints k3s ServiceLB tolerates, so Traefik runs wherever it listens.
+          - key: node-role.kubernetes.io/control-plane
+            operator: Exists
+            effect: NoSchedule
+          - key: CriticalAddonsOnly
+            operator: Exists
         metrics:
           prometheus:
             # Request rate and latency metrics.
