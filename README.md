@@ -52,7 +52,8 @@ multi-node. They behave the same on other distributions apart from these
 known differences:
 
 - k3s: run it with `--disable=traefik,metrics-server` so both come from their
-  charts. It installs its own Gateway API CRDs.
+  charts. It installs its own Gateway API CRDs. Behind NAT, leave
+  `node-external-ip` unset, or Traefik loses client addresses.
 - KubeSolo: its default storage class retains volumes (and their data) after
   their claims are deleted. On Ubuntu, map the hostname to the node IP in
   `/etc/hosts`; with `127.0.1.1` the API server refuses to proxy to the
