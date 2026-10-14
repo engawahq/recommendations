@@ -159,7 +159,7 @@ Tagging `vX.Y.Z` publishes:
 
 ```sh
 cosign verify-blob index.json --bundle index.json.sigstore.json \
-  --certificate-identity-regexp '^https://github.com/engawa/recommendations/.github/workflows/release.yml@refs/tags/v' \
+  --certificate-identity-regexp '^https://github.com/engawahq/recommendations/.github/workflows/release.yml@refs/tags/v' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 

@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/engawa/recommendations/tools/internal/recs"
+	"github.com/engawahq/recommendations/tools/internal/recs"
 )
 
 // indexVersion changes only on incompatible changes to index.json.

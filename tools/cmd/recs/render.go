@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/engawa/recommendations/tools/internal/recs"
+	"github.com/engawahq/recommendations/tools/internal/recs"
 )
 
 // render runs helm template for every component, release, profile and
