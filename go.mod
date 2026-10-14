@@ -1,4 +1,4 @@
-module github.com/engawa/recommendations
+module github.com/engawahq/recommendations
 
 go 1.26
 

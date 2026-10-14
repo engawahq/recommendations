@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/engawa/recommendations/tools/internal/recs"
+	"github.com/engawahq/recommendations/tools/internal/recs"
 )
 
 // measurement is measurements/<capability>/<upstream>.json. Environments are

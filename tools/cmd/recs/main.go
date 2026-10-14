@@ -19,7 +19,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/engawa/recommendations/tools/internal/recs"
+	"github.com/engawahq/recommendations/tools/internal/recs"
 )
 
 var commands = map[string]func(*flag.FlagSet, *recs.Catalog) error{
